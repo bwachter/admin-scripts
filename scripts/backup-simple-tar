@@ -1,0 +1,76 @@
+#!/bin/sh
+
+CONFIGURATIONLIST=
+BACKUPSTORAGE=/backup/staging
+BACKUPROOT=
+COMPRESS=
+# weekdays 0..6, starting with Sunday
+DAY=`date "+%w"`
+
+if [ -f /etc/backup/simple-tar.conf ]; then
+    . /etc/backup/simple-tar.conf
+fi
+
+if [ ! -z "$1" ]; then
+    CONFIGURATION=$1
+else
+    if [ -z "$CONFIGURATIONLIST" ]; then
+        echo "CONFIGURATIONLIST not set, and no host given as argument, exit."
+        exit 1
+    fi
+    for CONFIGURATION in $CONFIGURATIONLIST; do
+        echo "Running backup for $CONFIGURATION"
+        $0 $CONFIGURATION
+    done
+    exit
+fi
+
+BACKUPDIR=$BACKUPSTORAGE/$CONFIGURATION
+
+if [ -f $BACKUPDIR/config ]; then
+    . $BACKUPDIR/config
+else
+    echo "No configuration available for $CONFIGURATION, exit."
+    exit 1
+fi
+
+do_backup(){
+    if [ "$COMPRESS" = "xz" ]; then
+        TAR_SUFFIX=".xz"
+        EXTRA_TAR_OPT="--xz"
+    elif [ "$COMPRESS" = "bzip2" ]; then
+        TAR_SUFFIX=".bz2"
+        EXTRA_TAR_OPT="-j"
+    elif [ "$COMPRESS" = "gzip" ]; then
+        TAR_SUFFIX=".gz"
+        EXTRA_TAR_OPT="-z"
+    else
+        TAR_SUFFIX=""
+        EXTRA_TAR_OPT=""
+    fi
+
+    if [ -f $BACKUPDIR/$CONFIGURATION.$DAY.tar$TAR_SUFFIX ]; then
+        echo "Backup for today already exists!"
+        exit 1
+    fi
+    tar -cf $BACKUPDIR/$CONFIGURATION.$DAY.tar$TAR_SUFFIX \
+        --listed-incremental=$BACKUPDIR/backup.snar \
+        --exclude-from=$BACKUPDIR/excludes \
+        -P $EXTRA_TAR_OPT $BACKUPROOT
+}
+
+# sunday, special handling
+if [ $DAY = 0 ]; then
+    if [ -d $BACKUPDIR/last-week.old ]; then
+        rm -Rf $BACKUPDIR/last-week.old
+    fi
+    if [ -d $BACKUPDIR/last-week ]; then
+        mv $BACKUPDIR/last-week $BACKUPDIR/last-week.old
+        mkdir $BACKUPDIR/last-week
+        mv $BACKUPDIR/*.tar* $BACKUPDIR/last-week
+        rm $BACKUPDIR/backup.snar
+    fi
+    do_backup
+else
+    do_backup
+fi

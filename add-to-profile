@@ -1,0 +1,15 @@
+#!/bin/sh
+
+if [ `id -u` -ne 0 ]; then
+    exec sudo $0 $@
+fi
+
+if [ $0 != "./add-to-profile" ]; then
+    echo "Run as ./add-to-profile from installation directory"
+    exit 1
+fi
+
+if [ -d /etc/profile.d ]; then
+    cp conf/profile.sh.skel /etc/profile.d/admin-scripts-profile.sh
+    echo 'PATH=$PATH:'`pwd`/scripts > /etc/profile.d/admin-scripts-profile.sh
+fi
