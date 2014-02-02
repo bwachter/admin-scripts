@@ -66,10 +66,10 @@ if [ $DAY = 0 ]; then
     fi
     if [ -d $BACKUPDIR/last-week ]; then
         mv $BACKUPDIR/last-week $BACKUPDIR/last-week.old
-        mkdir $BACKUPDIR/last-week
-        mv $BACKUPDIR/*.tar* $BACKUPDIR/last-week
-        rm $BACKUPDIR/backup.snar
     fi
+    mkdir $BACKUPDIR/last-week
+    mv $BACKUPDIR/*.tar* $BACKUPDIR/last-week
+    rm $BACKUPDIR/backup.snar
     do_backup
 else
     do_backup
