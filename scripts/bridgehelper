@@ -1,4 +1,6 @@
 #!/bin/sh
+# (c) 2014 Bernd Wachter <bwachter@lart.info>
+# License: GPLv2
 
 set -x
 
@@ -14,4 +16,3 @@ else
     echo "Error: no interface specified"
     exit 1
 fi
-

@@ -1,4 +1,6 @@
 #!/bin/bash
+# (c) 2014 Bernd Wachter <bwachter@lart.info>
+# License: GPLv2
 #
 # To make serial console (and monitor) available by telnet, set SERIALPORT
 # This allows telnet connection to serial, and C-a c to switch to monitor
