@@ -1,0 +1,38 @@
+Introduction
+------------
+
+This is a cleaned up version of some useful scripts I've been carrying
+in the git repository containing the configuration files I want to have
+available on multiple computers.
+
+License of all scripts -- unless stated otherwise -- is GPLv2.
+
+All scripts are runable directly from the checkout directory, though some
+may need configuration files in place to work properly. Examples of those
+files can be found in the conf subdirectory.
+
+To make the scripts available in the path for all users chdir to the git
+directory, and run ./add-to-profile. This will create a file in profile.d
+with the correct path. Re-run this script if you change the location of
+the git checkout.
+
+Scripts
+-------
+
+- backup-simple-tar
+  A simple backup script using GNU tars incremental backup feature to
+  create incremental backups of one directory tree, and keep one
+  additional week around.
+- bridgehelper
+  A simple qemu-bridgehelper, required by kvmtool for setting up TAP
+  interfaces.
+- git-migrate
+  A script to move the completecontents of a git repository to a new
+  one -- retaining all branches and tags
+- git-rmtag
+  Remove a tag from both local and remote repository
+- git-update-all
+  Pull all git repositories under current working directory
+- kvmtool
+  A simple tool to easily create some common KVM setups without having
+  to mess with KVMs command line options or dealing with libvirt
