@@ -1,0 +1,20 @@
+#!/bin/bash
+
+TMPREPO=`mktemp -d`
+OLDREPOURL=$1
+NEWREPOURL=$2
+
+if [ -z "$OLDREPOURL" ]; then
+   echo "Usage: $1 oldrepourl [newrepourl]"
+   exit 1
+fi
+
+if [ -z "$NEWREPOURL" ]; then
+    NEWREPOURL=`echo $OLDREPOURL | sed 's,.*/,,' | sed 's/\.git$//'`
+    echo "Cloning to $NEWREPOURL"
+    git clone --mirror $OLDREPOURL $NEWREPOURL
+else
+    git clone --mirror $OLDREPOURL $TMPREPO
+    cd $TMPREPO && git remote add --mirror=push newupstream $NEWREPOURL && git push newupstream
+    cd && rm -Rf $TMPREPO
+fi

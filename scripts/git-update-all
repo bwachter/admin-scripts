@@ -1,0 +1,6 @@
+#!/bin/bash
+
+for i in `find $(pwd) -path '*/.git/config'`; do
+    GITDIR=`echo $i | sed 's,.git/config$,,'`
+    cd $GITDIR && git pull --ff-only
+done

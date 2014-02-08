@@ -1,0 +1,12 @@
+#!/bin/sh
+
+TAG=$1
+BRANCH=origin
+
+if [ -z "$TAG" ]; then
+    echo "Usage: git rmtag <tag>"
+    exit 1
+fi
+
+git tag -d $TAG
+git push $BRANCH :refs/tags/$TAG
