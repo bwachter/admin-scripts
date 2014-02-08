@@ -1,0 +1,193 @@
+#!/bin/bash
+#
+# To make serial console (and monitor) available by telnet, set SERIALPORT
+# This allows telnet connection to serial, and C-a c to switch to monitor
+#
+# Examples:
+# change ide1-cd0 <device-or-file>
+# eject ide1-cd0
+
+if [ -z "$1" ]; then
+    echo "Usage: $0 configuration"
+    exit 1
+fi
+
+if [ `id -u` -ne 0 ]; then
+    exec su -c "$0 $@"
+fi
+
+# set some default values
+MEM=256
+CPU=host
+INITRD=
+KERNEL=
+#DISC=
+KVMARGS=
+ROOTFLAGS=
+SERIALPORT=
+BRIDGEHELPER=/root/bridgehelper
+
+if [ -f /etc/kvm/defaults ]; then
+    . /etc/kvm/defaults
+fi
+
+if [ ! -x $BRIDGEHELPER ]; then
+    if [ `which bridgehelper 2>/dev/null` ]; then
+        BRIDGEHELPER=`which bridgehelper`
+    else
+        BRIDGEHELPER=""
+    fi
+fi
+
+bind_pci(){
+    if `lsmod | grep -q ^pci_stub`; then
+        echo "PCI stub driver seems to be loaded"
+    else
+        echo "PCI stub driver not loaded, trying to load"
+        modprobe pci_stub || exit 1
+    fi
+    for i in $PCI_IDS; do
+        ID=`echo $i | sed 's/:/ /'`
+        echo "Moving $ID to pci_stub control"
+        echo "$ID" > /sys/bus/pci/drivers/pci-stub/new_id
+    done
+    for _DEV in $PCI_DEVICES; do
+        # skip device ID if it already exists
+        if ! [ -h /sys/bus/pci/drivers/pci-stub/$_DEV ]; then
+            echo "Moving $DEV to pci_stub"
+            echo $_DEV > /sys/bus/pci/devices/$_DEV/driver/unbind
+            echo $_DEV > /sys/bus/pci/drivers/pci-stub/bind
+        fi
+    done
+    for _DEV in $PCI_DEVICES; do
+        if [ -h /sys/bus/pci/drivers/pci-stub/$_DEV ]; then
+            KVMARGS="$KVMARGS -device pci-assign,host=`echo $_DEV|sed 's/^0000://'`"
+        else
+            echo "Device $_DEV does not seem to be under stub control, skipping"
+        fi
+    done
+}
+
+unbind_pci(){
+    for i in $PCI_IDS; do
+        ID=`echo $i | sed 's/:/ /'`
+        echo "Removing $ID from pci_stub control"
+        echo "$ID" > /sys/bus/pci/drivers/pci-stub/remove_id
+    done
+    for _DEV in $DEVLIST; do
+        echo "Moving $DEV to pci_stub"
+        echo $_DEV > /sys/bus/pci/drivers/pci-stub/unbind
+        echo $_DEV > /sys/bus/pci/drivers/ehci_hcd/bind
+        echo $_DEV > /sys/bus/pci/drivers/uhci_hcd/bind
+    done
+
+}
+
+# TODO: autodetect kvm/qemu-kvm
+if [ `which kvm 2>/dev/null` ]; then
+    KVM=kvm
+elif [ `which qemu-kvm 2>/dev/null` ]; then
+    KVM=qemu-kvm
+else
+    echo "kvm not found"
+    exit 1
+fi
+
+echo "Using: $KVM"
+
+# TODO: support port forwarding, support additional disks/p9 shares
+SSH_HOST=127.0.0.4
+SSH_PORT=2222
+SB_DIR=/scratchbox/users/bwachter/home/bwachter/
+FULLNAME=kvm-$1
+
+if [ -f /etc/kvm/$FULLNAME ]; then
+    . /etc/kvm/$FULLNAME
+else
+    echo "Configuration /etc/kvm/$FULLNAME does not exist"
+fi
+
+# without serial server, use stdio for monitor
+if [ -z "$SERIALPORT" ]; then
+#    KVMARGS="$KVMARGS -monitor stdio"
+    KVMARGS=$KVMARGS
+fi
+
+if [ -z "$VGA" ] || [ "$VGA" = "none" ]; then
+    KVMARGS="$KVMARGS -nographic"
+else
+    KVMARGS="$KVMARGS -vga $VGA"
+    if [ -z "$DISPLAY" ]; then
+        echo "DISPLAY not set, trying with :0.0"
+        export DISPLAY=:0.0
+    fi
+fi
+
+# if directory exist, assume plan9 rootfs
+# otherwise check for image and volume, and boot from there
+if [ -d /kvm/$1 ]; then
+    ROOTPATH=/kvm/$1
+    INITRD=$ROOTPATH/`ls -l $ROOTPATH/initrd.img|sed 's/.* //'`
+    KERNEL=$ROOTPATH/vmlinuz
+    KVMARGS="$KVMARGS -virtfs local,id=$FULLNAME,path=$ROOTPATH,security_model=none,mount_tag=$FULLNAME-root,writeout=writeout"
+    ROOTFLAGS="root=$FULLNAME-root rootfstype=9p rootflags=trans=virtio,version=9p2000.L,nodevmap"
+elif [ -f /kvm/$1.qcow2 ]; then
+    DISC=/kvm/$1.qcow2
+elif [ -e /dev/vg0/$1 ]; then
+    DISC=/dev/vg0/$1.qcow2
+else
+    echo "No disc found"
+    exit 1
+fi
+
+if [ -n "$KERNEL" ]; then
+    KVMARGS="$KVMARGS -kernel $KERNEL"
+    if [ -n "$ROOTFLAGS" ]; then
+        ROOTFLAGS="$ROOTFLAGS console=ttyS0,115200n8"
+    fi
+fi
+if [ -n "$INITRD" ]; then KVMARGS="$KVMARGS -initrd $INITRD"; fi
+if [ -n "$SERIALPORT" ]; then KVMARGS="$KVMARGS -serial mon:telnet:localhost:$SERIALPORT,server,nowait"; fi
+if [ -n "$DISC" ]; then KVMARGS="$KVMARGS -hda $DISC"; fi
+
+# TODO: handle more than one NIC
+#       should be easy, just specify vlan=n for all options
+if [ -n "$NIC0_MODEL" ]; then
+    NET="-net nic,model=$NIC0_MODEL"
+    if [ -n "$NIC0_MAC" ]; then NET="$NET,macaddr=$NIC0_MAC"; fi
+
+    # either setup interface ourselves, or call external helper script
+    if [ "$NIC0_TYPE" = "TAP" ]; then
+        if [ -z "$BRIDGEHELPER" ]; then
+            echo "No bridgehelper found, skipping network interface"
+        else
+            KVMARGS="$KVMARGS -net tap,script=$BRIDGEHELPER"
+        fi
+    fi
+
+    KVMARGS="$KVMARGS $NET"
+fi
+
+if [ -n "$PCI_DEVICES" ] && [ -n "PCI_IDS" ]; then
+    bind_pci
+fi
+
+if [ -n "$USB_DEVICES" ]; then
+    KVMARGS="$KVMARGS -usb"
+    for _DEV in $USB_DEVICES; do
+        KVMARGS="$KVMARGS -usbdevice $_DEV"
+    done
+fi
+
+KVMARGS="$KVMARGS -m $MEM -cpu $CPU"
+
+if [ -n "$SERIALPORT" ]; then
+    echo "Console acces is available localhost:$SERIALPORT"
+fi
+
+if [ -n "$ROOTFLAGS" ]; then
+    echo "Appending: $ROOTFLAGS"
+    $KVM $KVMARGS -append "$ROOTFLAGS"
+else
+    $KVM $KVMARGS
+fi
