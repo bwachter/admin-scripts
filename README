@@ -25,16 +25,16 @@ Scripts
   A simple backup script using GNU tars incremental backup feature to
   create incremental backups of one directory tree, and keep one
   additional week around.
-- bridgehelper
+- bridgehelper <interface>
   A simple qemu-bridgehelper, required by kvmtool for setting up TAP
   interfaces.
-- git-migrate
+- git-migrate <old-url> [new-url]
   A script to move the completecontents of a git repository to a new
   one -- retaining all branches and tags
-- git-rmtag
+- git-rmtag <tag>
   Remove a tag from both local and remote repository
 - git-update-all
   Pull all git repositories under current working directory
-- kvmtool
+- kvmtool <configuration>
   A simple tool to easily create some common KVM setups without having
   to mess with KVMs command line options or dealing with libvirt
