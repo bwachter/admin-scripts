@@ -1,0 +1,13 @@
+#!/bin/bash
+# (c) 2014 Bernd Wachter <bwachter@lart.info>
+# License: GPLv2
+
+if [ -z "$1" ]; then
+    echo "Usage: $0 <key-id>"
+    exit 1
+fi
+
+KEYRING=`mktemp`
+gpg --keyring $KEYRING --no-default-keyring --recv-key $1
+gpg --keyring $KEYRING --no-default-keyring --export $1 | sudo apt-key add -
+rm -Rf $KEYRING

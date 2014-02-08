@@ -19,7 +19,9 @@ the git checkout.
 Scripts
 -------
 
-- backup-simple-tar
+- apt-import-key <key-id>
+  Download a GPG key from a keyserver and import it to the apt keyring
+- backup-simple-tar <configuration>
   A simple backup script using GNU tars incremental backup feature to
   create incremental backups of one directory tree, and keep one
   additional week around.
