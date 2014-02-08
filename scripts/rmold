@@ -1,0 +1,41 @@
+#!/bin/bash
+# (c) 2014 Bernd Wachter <bwachter@lart.info>
+# License: GPLv2
+#
+# Only keep <num> entries in specified dir, throwing away the oldest files
+
+if [ -z "$NUMFILES" ]; then
+    NUMFILES=9
+fi
+
+if [ -z "$1" ]; then
+    echo "Usage: $0 <dir> [num]"
+    exit 1
+fi
+
+if [ -n "$2" ]; then
+    if expr "$2" : '-\?[0-9]\+$' >/dev/null && [ $2 -ge 0 ]; then
+        NUMFILES=$2
+    else
+        echo "num needs to be >= 0"
+        exit 1
+    fi
+fi
+
+cd $1 || exit 1
+
+if [ -z "$2" ]; then
+    PATTERN='([0-9]+\.?){1,4}'
+else
+    PATTERN=$2
+fi
+PATTERNS=`ls | grep -E $PATTERN | sed -r s/$PATTERN/$PATTERN/ | sort | uniq`
+
+for p in $PATTERNS; do
+    echo "Checking $p..."
+    # sort all entries by date, and throw away the last x
+    OLD=$(ls -t `find -regextype posix-extended -iregex .*$p` | tail -n +$NUMFILES)
+    for i in $OLD; do
+        rm -v $i
+    done
+done

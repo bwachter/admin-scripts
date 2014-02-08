@@ -38,3 +38,5 @@ Scripts
 - kvmtool <configuration>
   A simple tool to easily create some common KVM setups without having
   to mess with KVMs command line options or dealing with libvirt
+- rmold <dir> [num]
+  Remove the oldest files from a directory, only keeping <num> entries
